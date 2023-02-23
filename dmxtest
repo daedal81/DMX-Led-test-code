@@ -1,0 +1,65 @@
+
+#include <Arduino.h>
+#include <esp_dmx.h>
+#include <FastLED.h>
+
+int transmitPin = 17;
+int receivePin = 16;
+int enablePin = 21;
+
+int dmxAddress = 1;  // The DMX address of this device
+
+//Channel Defintions
+#define NUM_LEDS 170
+#define NUM_LED_CHANNELS NUM_LEDS * 3
+
+//Fixture Hardware Definitinos
+CRGB leds[NUM_LEDS];
+
+#define DATA_PIN 19
+#define LED_TYPE WS2812
+#define COLOR_ORDER GRB
+
+dmx_port_t dmxPort = 1;
+byte data[NUM_LED_CHANNELS];
+
+void setup() {
+  Serial.begin(115200);
+  
+
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(10);
+
+  for(int i = 0; i < NUM_LEDS; i++){    //all leds to a color for startup test -this is working
+    leds[i]= CHSV( 200, 255, 255);
+    }
+  FastLED.show();
+  // Setup DMX driver
+  dmx_set_pin(dmxPort, transmitPin, receivePin, enablePin);
+  dmx_driver_install(dmxPort, DMX_DEFAULT_INTR_FLAGS);
+  
+  Serial.println("end of setup");
+}
+
+void loop() {
+  dmx_packet_t packet;
+  Serial.println("x");
+  if (dmx_receive(dmxPort, &packet, DMX_TIMEOUT_TICK)) {
+
+    // Ensure packet is error free and contains the slot info needed to read
+     if (!packet.err && packet.size >= dmxAddress + NUM_LED_CHANNELS) {
+      Serial.println("y");
+      // Read just the slot data into the data buffer
+      dmx_read_offset(dmxPort, dmxAddress, data, NUM_LED_CHANNELS);
+
+      // Set the LED intensities appropriately
+      for (int led = 1; led < NUM_LED_CHANNELS; led++)
+      {
+      analogWrite(leds[led], data[led]);
+      }
+    
+    } else {
+      Serial.println("A DMX error occurred.");
+    }
+  } 
+}
